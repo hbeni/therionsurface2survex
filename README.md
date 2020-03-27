@@ -58,3 +58,13 @@ new surface 3d file.
 
 Integration is easy, once you know how it works. You need to prepare some
 therion source file to `import` your 3d file. See the therion book fo examples.
+
+A short example may be a single thconfig file like this:
+```
+source
+  import myCave.th.3d -surveys ignore
+  import mySurface.3d -surveys ignore
+endsource
+
+export model -o myCave_with_mySurface.3d
+```
