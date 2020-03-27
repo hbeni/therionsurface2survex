@@ -1,0 +1,17 @@
+some garbage
+
+surface
+  bitmap foo.jpg
+  #    x      y       xs ys cnum rnum
+  grid 400080 5419750 10 10 4    5
+  10 10 10 10
+  10 15 15 10
+  10 20 20 10
+  15 15 15 15
+  20 10 10 20
+ 
+     endsurface
+endsurface
+
+
+more garbage
