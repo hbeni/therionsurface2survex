@@ -15,7 +15,8 @@
 * @author 2020 Benedikt Hallinger <beni@hallinger.org>
 */
 
-const char VERSION[] = "0.9";
+const char VERSION[]  = "0.9";
+const char PROGNAME[] = "therionsurface2survex";
 
 #include <ctype.h>
 #include <stdio.h>
@@ -24,6 +25,9 @@ const char VERSION[] = "0.9";
 
 #include <iostream>
 #include <fstream>
+
+#include <chrono>
+#include <ctime>
 
 // Strings benutzbar machen
 #include <string>
@@ -34,12 +38,14 @@ using namespace std;
 
 /* Print usage info */
 void usage () {
-  cout << "therionsurface2survex Version "<< VERSION << ", License GPLv3" <<endl;
+  cout << PROGNAME << " Version " << VERSION << ", License GPLv3" <<endl;
   cout << "Convert therion surface meshes to survex" << endl;
-  cout << "Usage: [-h] [-o outfile] [-i infile] -- [infile]"<<endl;
+  cout << "Usage: [-hs] [-o outfile] [-i infile] -- [infile]"<<endl;
   cout << "  -o outfile    File to write to. Will be derived from infile if not specified."<<endl;
   cout << "  -i infile     File to read from, if not given by last parameter."<<endl;
   cout << "  -h            Print this help and exit."<<endl;
+  cout << "  -s            Skip check of contents - process entire file (use in case" <<endl;
+  cout << "                your therion grid data file has no \"surface\" declaration)" <<endl;
 }
 
 
@@ -47,6 +53,7 @@ int main (int argc, char **argv)
 {
   string inFile;
   string outFile;
+  bool skipCheck = false;  // true=process entire file
 
 
   // Parse cmdline options
@@ -55,7 +62,7 @@ int main (int argc, char **argv)
 
   opterr = 0;
 
-  while ((c = getopt (argc, argv, "hi:o:")) != -1)
+  while ((c = getopt (argc, argv, "hsi:o:")) != -1)
     switch (c)
       {
       case 'h':
@@ -67,6 +74,9 @@ int main (int argc, char **argv)
         break;
       case 'o':
         outFile = optarg;
+        break;
+      case 's':
+        skipCheck = true;
         break;
       case '?':
         if (optopt == 'i' || optopt == 'o')
@@ -122,10 +132,18 @@ int main (int argc, char **argv)
     std::string in_line;
     std::string out_line;
 
+    // write a nice header
+    auto now = std::chrono::system_clock::now();
+    std::time_t now_time = std::chrono::system_clock::to_time_t(now);
+    h_outfile << "; converted by " << PROGNAME << " Version " << VERSION << "\n";
+    h_outfile << "; on " << std::ctime(&now_time);
+    h_outfile << "; from file " << inFile.c_str() << "\n\n";
+
     // prepare some regexes for parsing
     std::regex detect_surface_start_re ("^\\s*(surface|grid)");
     std::regex detect_surface_end_re ("^\\s*endsurface");
-    std::regex parse_cmddirect_re ("^\\s*(cs)\\s+(.+)");
+    std::regex parse_cmddirect_re ("^\\s*(-nothing So Far-)\\s+(.+)");
+    std::regex parse_cs_re ("^\\s*(cs)\\s+(.+)");
     std::regex parse_grid_re ("^\\s*grid\\s+(\\d+[.\\d]*)\\s+(\\d+[.\\d]*)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)$");
     std::regex parse_data_re ("^(\\s*\\d+[\\d.]*)+$");
 
@@ -133,6 +151,7 @@ int main (int argc, char **argv)
     float origin_x, origin_y;
     long step_x, step_y, cols_num, rows_num;
     long cur_col, cur_row = 0;
+    string seen_cs;
     std::vector<std::vector<float> > parsedData;  // holds parsed data rows
     while ( std::getline (h_infile, in_line) ) {
       line_nr++;
@@ -144,14 +163,21 @@ int main (int argc, char **argv)
       if (std::regex_search(in_line, detect_surface_end_re))   in_surfacedata = false;
 
       // try to parse any relevant commands
-      if (in_surfacedata) {
+      if (skipCheck || in_surfacedata) {
         //cout << "DBG: precessing line " << line_nr << ": " << in_surfacedata << '\n';
 
         // direct commandos will go directly into the tgt file
         std::smatch sm_cmd;
         if (std::regex_search(in_line, sm_cmd, parse_cmddirect_re)) {
-          h_outfile << "*" << sm_cmd[1] << " " << sm_cmd[2] << in_surfacedata << "\n";
+          h_outfile << "*" << sm_cmd[1] << " " << sm_cmd[2] << "\n";
           //printf ("  DBG: line %i: Parsed '%s' to direct cmd\n", line_nr, in_line.c_str());
+        }
+
+	// copy cs command in case it was given
+        std::smatch sm_cs;
+	if (std::regex_search(in_line, sm_cs, parse_cs_re)) {
+          h_outfile << "*" << sm_cs[1] << " " << sm_cs[2] << "\n";
+          h_outfile << "*" << "cs out" << " " << sm_cs[2] << "\n";
         }
 
         // parse grid command, we need to get some values out:
