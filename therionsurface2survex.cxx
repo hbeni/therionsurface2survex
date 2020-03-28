@@ -15,7 +15,7 @@
 * @author 2020 Benedikt Hallinger <beni@hallinger.org>
 */
 
-const char VERSION[]  = "0.9";
+const char VERSION[]  = "0.9.1";
 const char PROGNAME[] = "therionsurface2survex";
 
 #include <ctype.h>
@@ -40,12 +40,13 @@ using namespace std;
 void usage () {
   cout << PROGNAME << " Version " << VERSION << ", License GPLv3" <<endl;
   cout << "Convert therion surface meshes to survex" << endl;
-  cout << "Usage: [-hs] [-o outfile] [-i infile] -- [infile]"<<endl;
+  cout << "Usage: [-hsd] [-o outfile] [-i infile] -- [infile]"<<endl;
   cout << "  -o outfile    File to write to. Will be derived from infile if not specified."<<endl;
   cout << "  -i infile     File to read from, if not given by last parameter."<<endl;
   cout << "  -h            Print this help and exit."<<endl;
   cout << "  -s            Skip check of contents - process entire file (use in case" <<endl;
   cout << "                your therion grid data file has no \"surface\" declaration)" <<endl;
+  cout << "  -d            debug mode: spew any action on stdout" <<endl;
 }
 
 
@@ -54,6 +55,7 @@ int main (int argc, char **argv)
   string inFile;
   string outFile;
   bool skipCheck = false;  // true=process entire file
+  bool debug = false;
 
 
   // Parse cmdline options
@@ -62,7 +64,7 @@ int main (int argc, char **argv)
 
   opterr = 0;
 
-  while ((c = getopt (argc, argv, "hsi:o:")) != -1)
+  while ((c = getopt (argc, argv, "hsdi:o:")) != -1)
     switch (c)
       {
       case 'h':
@@ -77,6 +79,9 @@ int main (int argc, char **argv)
         break;
       case 's':
         skipCheck = true;
+        break;
+      case 'd':
+        debug = true;
         break;
       case '?':
         if (optopt == 'i' || optopt == 'o')
@@ -155,7 +160,7 @@ int main (int argc, char **argv)
     std::vector<std::vector<float> > parsedData;  // holds parsed data rows
     while ( std::getline (h_infile, in_line) ) {
       line_nr++;
-      //cout << "DBG: " << line_nr << ": " << in_line << '\n';
+      if (debug) cout << "DBG: " << line_nr << ": " << in_line << '\n';
       
       
       // detect if we are inside a surface-block
@@ -164,18 +169,18 @@ int main (int argc, char **argv)
 
       // try to parse any relevant commands
       if (skipCheck || in_surfacedata) {
-        //cout << "DBG: precessing line " << line_nr << ": " << in_surfacedata << '\n';
+        if (debug) cout << "DBG: precessing line " << line_nr << ": " << in_surfacedata << '\n';
 
         // direct commandos will go directly into the tgt file
         std::smatch sm_cmd;
         if (std::regex_search(in_line, sm_cmd, parse_cmddirect_re)) {
           h_outfile << "*" << sm_cmd[1] << " " << sm_cmd[2] << "\n";
-          //printf ("  DBG: line %i: Parsed '%s' to direct cmd\n", line_nr, in_line.c_str());
+          if (debug) printf ("  DBG: line %i: Parsed '%s' to direct cmd\n", line_nr, in_line.c_str());
         }
 
-	// copy cs command in case it was given
+        // copy cs command in case it was given
         std::smatch sm_cs;
-	if (std::regex_search(in_line, sm_cs, parse_cs_re)) {
+        if (std::regex_search(in_line, sm_cs, parse_cs_re)) {
           h_outfile << "*" << sm_cs[1] << " " << sm_cs[2] << "\n";
           h_outfile << "*" << "cs out" << " " << sm_cs[2] << "\n";
         }
@@ -191,13 +196,14 @@ int main (int argc, char **argv)
           step_y   = stol(sm_grid[4]);
           cols_num = stol(sm_grid[5]);
           rows_num = stol(sm_grid[6]);
-          //printf ("  DBG: line %i: Parsed '%s' to origin_x=%f, origin_y=%f, step_x=%i, step_y=%i, cols_num=%i, rows_num=%i\n", line_nr, in_line.c_str(), origin_x, origin_y, step_x, step_y, cols_num, rows_num);
+          if (debug) printf ("  DBG: line %i: Parsed '%s' to origin_x=%f, origin_y=%f, step_x=%i, step_y=%i, cols_num=%i, rows_num=%i\n", line_nr, in_line.c_str(), origin_x, origin_y, step_x, step_y, cols_num, rows_num);
           
           // init result array
           parsedData.resize(rows_num);
           for(int i = 0 ; i < rows_num ; ++i) {
             parsedData[i].resize(cols_num);
           }
+          cur_row = rows_num-1; // need to allocate backwards, otherwise model is fipped
         }
         
         // parse raw data. These are heights at the given point in the matrix.
@@ -212,16 +218,18 @@ int main (int argc, char **argv)
                     if (temp != "") 
                       tokens.push_back( temp );
                 }
-                //printf ("  DBG: data regex matched: %i tokens/%i cols expected. Data:\n", tokens.size(), cols_num);
-                //for (size_t i = 0; i < tokens.size(); ++i) 
-                //   cout << "     TOKEN[" << i << "]=" << ": '" << tokens[i] << "'\n";
+                if (debug) printf ("  DBG: data regex matched: %i tokens/%i cols expected. Data:\n", tokens.size(), cols_num);
+                if (debug) {
+                    for (size_t i = 0; i < tokens.size(); ++i) 
+                      cout << "     TOKEN[" << i << "]=" << ": '" << tokens[i] << "'\n";
+                }
                 
                 if (tokens.size() == cols_num) {
-                    for (cur_col = 0; cur_col < tokens.size(); ++cur_col) {
-                       //printf ("  DBG: data stored: parsedData[%i][%i]='%f'\n", cur_row, cur_col, stof(tokens[cur_col]) );
+                    for (cur_col = 0; cur_col < tokens.size(); ++cur_col) {  // need to allocate backwards, otherwise model is fipped
+                       if (debug) printf ("  DBG: data stored: parsedData[%i][%i]='%f'\n", cur_row, cur_col, stof(tokens[cur_col]) );
                        parsedData[cur_row][cur_col] = stof(tokens[cur_col]);
                     }        
-                  cur_row++;
+                  cur_row--;
                 }
             }
         }
@@ -237,6 +245,9 @@ int main (int argc, char **argv)
     /* Ok, now we write the fix station data */
     h_outfile << "*flags surface" << "\n";
     float tgt_x, tgt_y, tgt_z;
+    float bbox_ur_x = origin_x + step_x * cols_num;
+    float bbox_ur_y = origin_y + step_y * cols_num;
+    if (debug) printf ("  DBG: BBox: lowerLeft=(%f / %f); upperRight=(%f / %f)\n", origin_x, origin_y, bbox_ur_x, bbox_ur_y);
     for (cur_row = 0; cur_row < parsedData.size(); ++cur_row) {
       for (cur_col = 0; cur_col < parsedData[cur_row].size(); ++cur_col) {
           // *fix 20 200 000 1050
@@ -248,7 +259,7 @@ int main (int argc, char **argv)
           string outStr   = "*fix " + tgt_name + " " + to_string(tgt_x) + " " + to_string(tgt_y) + " " + to_string(tgt_z);
           h_outfile << outStr.c_str() << "\n";
           
-          //printf ("  DBG: data written: parsedData[%i][%i]='%f' => '%s'\n", cur_row, cur_col, parsedData[cur_row][cur_col], outStr.c_str() );
+          if (debug) printf ("  DBG: data written: parsedData[%i][%i]='%f' => '%s'\n", cur_row, cur_col, parsedData[cur_row][cur_col], outStr.c_str() );
       }
     }
     
