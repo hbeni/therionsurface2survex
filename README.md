@@ -8,6 +8,7 @@ Usage: [-hs] [-o outfile] [-i infile] -- [infile]
   -h            Print this help and exit.
   -s            Skip check of contents - process entire file (use in case
                 your therion grid data file has no "surface" declaration
+  -d            debug mode: spew any action on stdout
 ```
  
 Example: `./therionsurface2survex examples/surface.th`
