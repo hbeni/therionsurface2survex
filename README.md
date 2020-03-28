@@ -31,7 +31,7 @@ In case the data is not inside a `surface` block, you can invoke `-s` parameter 
 
 - _GDAL ASCII grid file_  
 With `gdal_translate -of AAIGrid ...` you can convert a given heightmap from binary to ASCII, suitable to be used by therion (after adding some therion commands). The programm will recognize the GDAL header in this ASCII grid file and ceate the `.swx`.  
-The drawback is, that the grid file does not contain any coordinate system reference, so you need to add this manually afterwards (eg. add `*cs EPSG:31258` into the resulting `.swx` at the start of the file).
+The drawback is, that the grid file does not contain any coordinate system reference, so you need to add this manually afterwards (eg. add `*cs EPSG:31258` and `*cs out EPSG:31258` into the resulting `.swx` at the start of the file).
 
 
 #### Output formats
