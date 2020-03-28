@@ -15,7 +15,7 @@
 * @author 2020 Benedikt Hallinger <beni@hallinger.org>
 */
 
-const char VERSION[]  = "0.9.1";
+const char VERSION[]  = "0.10";
 const char PROGNAME[] = "therionsurface2survex";
 
 #include <ctype.h>
@@ -151,12 +151,15 @@ int main (int argc, char **argv)
     std::regex parse_cs_re ("^\\s*(cs)\\s+(.+)");
     std::regex parse_grid_re ("^\\s*grid\\s+(\\d+[.\\d]*)\\s+(\\d+[.\\d]*)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)$");
     std::regex parse_data_re ("^(\\s*\\d+[\\d.]*)+$");
+    std::regex parse_gdalhdr_re ("^\\s*(ncols|nrows|xllcorner|yllcorner|cellsize)\\s+([.\\d]+)");
 
     bool in_surfacedata = false;
     float origin_x, origin_y;
     long step_x, step_y, cols_num, rows_num;
     long cur_col, cur_row = 0;
-    string seen_cs;
+    bool gdal_header_valid = false;
+    long gdal_ncols = -1, gdal_nrows = -1, gdal_cellsize = -1;
+    float gdal_xllcorner = -1, gdal_yllcorner = -1;
     std::vector<std::vector<float> > parsedData;  // holds parsed data rows
     while ( std::getline (h_infile, in_line) ) {
       line_nr++;
@@ -166,6 +169,36 @@ int main (int argc, char **argv)
       // detect if we are inside a surface-block
       if (std::regex_search(in_line, detect_surface_start_re)) in_surfacedata = true;
       if (std::regex_search(in_line, detect_surface_end_re))   in_surfacedata = false;
+      
+      // Detect GDAL format header
+      std::smatch sm_gdalhdr;
+      if (std::regex_search(in_line, sm_gdalhdr, parse_gdalhdr_re)) {
+        if (debug) cout << "  DBG: GDAL parse OK; cmd=" << sm_gdalhdr[1] << "; val=" << sm_gdalhdr[2] << "\n";
+        
+        if (sm_gdalhdr[1] == "ncols")     gdal_ncols     = stol(sm_gdalhdr[2]);
+        if (sm_gdalhdr[1] == "nrows")     gdal_nrows     = stol(sm_gdalhdr[2]);
+        if (sm_gdalhdr[1] == "xllcorner") gdal_xllcorner = stof(sm_gdalhdr[2]);
+        if (sm_gdalhdr[1] == "yllcorner") gdal_yllcorner = stof(sm_gdalhdr[2]);
+        if (sm_gdalhdr[1] == "cellsize")  gdal_cellsize  = stol(sm_gdalhdr[2]);
+        
+        if (gdal_ncols > -1 && gdal_nrows > -1 && gdal_xllcorner > -1 && gdal_yllcorner > -1 && gdal_cellsize > -1) {
+          if (debug) cout << "  DBG: GDAL header complete! \n";
+          // once we have a full GDAL header, we can parse the data :)
+          // simply fake grid command so the parser below can work it out
+          in_line = "grid " 
+          + to_string(gdal_xllcorner) + " " 
+          + to_string(gdal_yllcorner) + " " 
+          + to_string(gdal_cellsize) + " " 
+          + to_string(gdal_cellsize) + " " 
+          + to_string(gdal_ncols) + " "
+          + to_string(gdal_nrows);
+          
+          skipCheck = true;
+          
+          if (debug) printf ("  DBG: line %i: valid GDAL header detected. Generated grid command: '%s'\n", line_nr, in_line.c_str());
+        }
+        
+      }
 
       // try to parse any relevant commands
       if (skipCheck || in_surfacedata) {
