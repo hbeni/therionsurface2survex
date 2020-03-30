@@ -1,0 +1,14 @@
+encoding  utf-8
+# This example shows how to integrate a fictive cave with therion surface grid.
+#
+# Prerequisite is to run the command `therionsurface2survex example/surface.th -t`
+# The command will parse the surface.th grid file and outputs a surface.th.th
+# therion source file containing a surface leg survey.
+# Then compile this file with `therion`. This produces a test.3d file,
+# containing both the survey and the surface mesh.
+#
+
+source myCave.th       # ficitve data from the survey
+source surface.th.th   # exported from surface.th grid data with Option "-t"
+
+export model -o test.3d

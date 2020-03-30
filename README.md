@@ -1,5 +1,5 @@
 # therionsurface2survex
-Convert therion (or GDAL) surface meshes to survex surface legs.
+Convert therion (or GDAL) surface meshes to survex (or therion) surface legs.
 
 ```
 Usage: [-hsd] [-o outfile] [-i infile] -- [infile]
@@ -8,6 +8,7 @@ Usage: [-hsd] [-o outfile] [-i infile] -- [infile]
   -h            Print this help and exit.
   -s            Skip check of contents - process entire file (use in case
                 your therion grid data file has no "surface" declaration
+  -t            Export in therion centerline format
   -d            debug mode: spew any action on stdout
 ```
  
@@ -20,7 +21,7 @@ The main intend of this progam is to generate survex surface meshes that will
 be processed by survex cavern program. This generates a 3d-file that can be
 merged with your cave by therion. This way you can use your existing therion digital elevation
 model (DEM) and include it in therions 3d-export; for example to get the distance
-from the cave passage to the sourface.
+from the cave passage to the surface.
 
 ![Screenshot from Hirlatzhöhle made with V.0.10](example/screenshot_0.10.png)
 
@@ -38,11 +39,19 @@ The drawback is, that the grid file does not contain any coordinate system refer
 
 
 #### Output formats
+The supported output formats are:
+
+- _Survex_ (default)  
 The output file is in survex `.swx` format, suitable to be processed from
 `cavern` to create a survex 3d-file, which contains the 3d mesh.  
 Each grid section is translated to a station. Station names follow the
-naming scheme surface.<row>.<column>, where row and column is the cell address
+naming scheme `surface.<row>.<column>`, where row and column is the cell address
 from the source therion file.
+
+- _Therion source file_ (with `-t`)  
+The output is in therions `.th` centerline format, suitable to be `source`'d
+from therion `thconfig` files which may be even easier to combine with
+you cave data in therion.
 
 
 ## How it operates
@@ -74,6 +83,7 @@ different points of the surface (like heights of walls or distances from peaks).
 For this to work, you need to create a combined 3d-file with your cave and the
 new surface 3d file.
 
+#### Combining several survex/aven 3d-files
 Integration is easy, once you know how it works. You need to prepare some
 therion source file to `import` your 3d file. See the therion book fo examples.  
 (this method is needed because aven currently does not support opening
@@ -85,6 +95,20 @@ source
   import myCave.th.3d -surveys ignore
   import mySurface.3d -surveys ignore
 endsource
+
+export model -o myCave_with_mySurface.3d
+```
+
+#### Combine using therion native format (-t option)
+Things get even easier if you directly export a native therion surface mesh.
+This can be activated either by ending the output file parameter `-o` with a name
+ending in `.th` or by explicitely requesting the `-t`parameter.  
+Exporting directly to therion native format allows you more fine control.
+
+A short example may be a single thconfig file like this:
+```
+source myCave.th
+source mySurface.th
 
 export model -o myCave_with_mySurface.3d
 ```

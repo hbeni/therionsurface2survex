@@ -15,7 +15,7 @@
 * @author 2020 Benedikt Hallinger <beni@hallinger.org>
 */
 
-const char VERSION[]  = "0.10";
+const char VERSION[]  = "1.0";
 const char PROGNAME[] = "therionsurface2survex";
 
 #include <ctype.h>
@@ -40,12 +40,13 @@ using namespace std;
 void usage () {
   cout << PROGNAME << " Version " << VERSION << ", License GPLv3" <<endl;
   cout << "Convert therion surface meshes to survex" << endl;
-  cout << "Usage: [-hsd] [-o outfile] [-i infile] -- [infile]"<<endl;
+  cout << "Usage: [-hsdt] [-o outfile] [-i infile] -- [infile]"<<endl;
   cout << "  -o outfile    File to write to. Will be derived from infile if not specified."<<endl;
   cout << "  -i infile     File to read from, if not given by last parameter."<<endl;
   cout << "  -h            Print this help and exit."<<endl;
   cout << "  -s            Skip check of contents - process entire file (use in case" <<endl;
   cout << "                your therion grid data file has no \"surface\" declaration)" <<endl;
+  cout << "  -t            Export in therion centerline format\n" <<endl;
   cout << "  -d            debug mode: spew any action on stdout" <<endl;
 }
 
@@ -55,6 +56,7 @@ int main (int argc, char **argv)
   string inFile;
   string outFile;
   bool skipCheck = false;  // true=process entire file
+  bool outFormatTH = false; // output in therion centerline format
   bool debug = false;
 
 
@@ -64,7 +66,7 @@ int main (int argc, char **argv)
 
   opterr = 0;
 
-  while ((c = getopt (argc, argv, "hsdi:o:")) != -1)
+  while ((c = getopt (argc, argv, "hstdi:o:")) != -1)
     switch (c)
       {
       case 'h':
@@ -79,6 +81,9 @@ int main (int argc, char **argv)
         break;
       case 's':
         skipCheck = true;
+        break;
+      case 't':
+        outFormatTH = true;
         break;
       case 'd':
         debug = true;
@@ -114,13 +119,24 @@ int main (int argc, char **argv)
     return 1;
   }
 
+  // switch to therion mode in case outfile was given and ends with *.th
+  if (outFile != "" && outFile.length() >= 3 && outFile.substr(outFile.length()-3,3) == ".th" )
+    outFormatTH = true;
+  
   // generate default value for outFile in case nothing was given from user
   if (outFile == "") {
-    outFile = inFile + ".swx";
+    if (outFormatTH) {
+      outFile = inFile + ".th";
+    } else {
+      outFile = inFile + ".swx";
+    }
   }
 
-
-
+  
+  // therion/survex prefixes
+  std::string comment_prfx = (outFormatTH)? "#" : ";";
+  std::string command_prfx = (outFormatTH)? "" : "*";
+  
 
   // Read infile, parse and write result to outfile
   ifstream h_infile;
@@ -140,9 +156,13 @@ int main (int argc, char **argv)
     // write a nice header
     auto now = std::chrono::system_clock::now();
     std::time_t now_time = std::chrono::system_clock::to_time_t(now);
-    h_outfile << "; converted by " << PROGNAME << " Version " << VERSION << "\n";
-    h_outfile << "; on " << std::ctime(&now_time);
-    h_outfile << "; from file " << inFile.c_str() << "\n\n";
+    h_outfile << comment_prfx << " converted by " << PROGNAME << " Version " << VERSION << "\n";
+    h_outfile << comment_prfx << " on " << std::ctime(&now_time);
+    h_outfile << comment_prfx << " from file " << inFile.c_str() << "\n\n";
+    if (outFormatTH) {
+      h_outfile << "survey surface\n";
+      h_outfile << "centerline\n";
+    }
 
     // prepare some regexes for parsing
     std::regex detect_surface_start_re ("^\\s*(surface|grid)");
@@ -207,15 +227,16 @@ int main (int argc, char **argv)
         // direct commandos will go directly into the tgt file
         std::smatch sm_cmd;
         if (std::regex_search(in_line, sm_cmd, parse_cmddirect_re)) {
-          h_outfile << "*" << sm_cmd[1] << " " << sm_cmd[2] << "\n";
+          h_outfile << command_prfx << sm_cmd[1] << " " << sm_cmd[2] << "\n";
           if (debug) printf ("  DBG: line %i: Parsed '%s' to direct cmd\n", line_nr, in_line.c_str());
         }
 
         // copy cs command in case it was given
         std::smatch sm_cs;
         if (std::regex_search(in_line, sm_cs, parse_cs_re)) {
-          h_outfile << "*" << sm_cs[1] << " " << sm_cs[2] << "\n";
-          h_outfile << "*" << "cs out" << " " << sm_cs[2] << "\n";
+          h_outfile << command_prfx << sm_cs[1] << " " << sm_cs[2] << "\n";
+          if (!outFormatTH)
+            h_outfile << command_prfx << "cs out" << " " << sm_cs[2] << "\n";
         }
 
         // parse grid command, we need to get some values out:
@@ -276,7 +297,7 @@ int main (int argc, char **argv)
     
     
     /* Ok, now we write the fix station data */
-    h_outfile << "*flags surface" << "\n";
+    h_outfile << command_prfx << "flags surface" << "\n";
     float tgt_x, tgt_y, tgt_z;
     float bbox_ur_x = origin_x + step_x * cols_num;
     float bbox_ur_y = origin_y + step_y * cols_num;
@@ -289,7 +310,7 @@ int main (int argc, char **argv)
           tgt_y     = origin_y + step_y * cur_row;
           tgt_z     = parsedData[cur_row][cur_col];
           string tgt_name = "surface." + to_string(cur_row) + "." + to_string(cur_col);
-          string outStr   = "*fix " + tgt_name + " " + to_string(tgt_x) + " " + to_string(tgt_y) + " " + to_string(tgt_z);
+          string outStr   = command_prfx + "fix " + tgt_name + " " + to_string(tgt_x) + " " + to_string(tgt_y) + " " + to_string(tgt_z);
           h_outfile << outStr.c_str() << "\n";
           
           if (debug) printf ("  DBG: data written: parsedData[%i][%i]='%f' => '%s'\n", cur_row, cur_col, parsedData[cur_row][cur_col], outStr.c_str() );
@@ -297,7 +318,7 @@ int main (int argc, char **argv)
     }
     
     /* Ok, now on to write the mesh */
-    h_outfile << "\n*data nosurvey from to" << "\n";
+    h_outfile << "\n" << command_prfx << "data nosurvey from to" << "\n";
     for (cur_row = 0; cur_row < parsedData.size(); ++cur_row) {
       for (cur_col = 0; cur_col < parsedData[cur_row].size(); ++cur_col) {
 
@@ -318,6 +339,11 @@ int main (int argc, char **argv)
             h_outfile << outStr.c_str() << "\n";
           }
       }
+    }
+    
+    if (outFormatTH) {
+      h_outfile << "endcenterline\n";
+      h_outfile << "endsurvey\n";
     }
     
     h_outfile.close();

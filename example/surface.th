@@ -1,8 +1,9 @@
-some garbage
+#some garbage
 
 surface
-  bitmap foo.jpg
   cs EPSG:31290
+  bitmap foo.jpg [0 0 400080 5419750 10 10 400120 5419800]
+  
   #    x      y       xs ys cnum rnum
   grid 400080 5419750 10 10 4    5
   10 10 10 10
@@ -14,4 +15,4 @@ surface
      endsurface some #stuff left here
 
 
-more garbage to be ignored
+#more garbage to be ignored
