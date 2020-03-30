@@ -1,5 +1,5 @@
 # therionsurface2survex
-Convert therion surface meshes to survex
+Convert therion (or GDAL) surface meshes to survex surface legs.
 
 ```
 Usage: [-hsd] [-o outfile] [-i infile] -- [infile]
@@ -18,9 +18,11 @@ results in *surface.th.swx* being generated.
 ## Description
 The main intend of this progam is to generate survex surface meshes that will
 be processed by survex cavern program. This generates a 3d-file that can be
-merged by therion. This way you can use your existing therion digital elevation
+merged with your cave by therion. This way you can use your existing therion digital elevation
 model (DEM) and include it in therions 3d-export; for example to get the distance
 from the cave passage to the sourface.
+
+![Screenshot from Hirlatzhöhle made with V.0.10](example/screenshot_0.10.png)
 
 
 #### Input formats
@@ -86,3 +88,8 @@ endsource
 
 export model -o myCave_with_mySurface.3d
 ```
+
+
+## Alternatives
+Survex 1.2.18 added support for loading terrain data and rendering it as a transparent surface in `aven`. As far as i know this is similar to therions `loch` terrain feature, where a transparent height model is displayed.  
+However neither of both viewers currently support the distinct selection of points on the surface, so no measurements can be taken.
