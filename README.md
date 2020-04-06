@@ -8,11 +8,14 @@ Usage: [-hsd] [-o outfile] [-i infile] -- [infile]
   -h            Print this help and exit.
   -s            Skip check of contents - process entire file (use in case
                 your therion grid data file has no "surface" declaration
-  -t            Export in therion centerline format
+  -t            Export in therion centerline format (implicit if -o ends with '.th')
   -d            debug mode: spew any action on stdout
 ```
  
-Example: `./therionsurface2survex examples/surface.th`
+Example 1 (therion native): `./therionsurface2survex -t -o surface.mesh.th examples/surface.th`
+results in *surface.mesh.th* being generated (in therion format).
+ 
+Example 2 (survex format):  `./therionsurface2survex examples/surface.th`
 results in *surface.th.swx* being generated.
 
 
@@ -64,7 +67,7 @@ In case you separate the grid data from the surrounding therion commands (like
 surface, bitmap, cs and so on), you can use the `-s` option to disable the
 checks alltogether, which results in the whole file being tried to be parsed.
 This may yield wrong results in case you are combining centerline data and
-surface data in one file.
+surface data in one source file.
 
 
 ## Compiling and running
@@ -80,14 +83,27 @@ One main use case for me was that i wanted to convert the existing DEM from the
 Hirlatz/Dachstein into survex so i can take exact measurements of cave tunnels
 to the surface. However it is also very convinient to take measurements from
 different points of the surface (like heights of walls or distances from peaks).
-For this to work, you need to create a combined 3d-file with your cave and the
-new surface 3d file.
+
+#### Combine using therion native format (-t option)
+Since V.1.0 the preffered way is to directly export a native therion surface mesh.
+This can be activated either by ending the output file parameter `-o` with a name
+ending in `.th` or by explicitely requesting the `-t`parameter.  
+Exporting directly to therion native format allows you more fine control than to
+combine survex `.3d` files.
+
+A short example may be a single thconfig file like this:
+```
+source myCave.th
+source mySurface.th
+
+export model -o myCave_with_mySurface.3d
+```
 
 #### Combining several survex/aven 3d-files
 Integration is easy, once you know how it works. You need to prepare some
 therion source file to `import` your 3d file. See the therion book fo examples.  
 (this method is needed because aven currently does not support opening
-several files in parallel in one window)
+several files in parallel in one window).
 
 A short example may be a single thconfig file like this:
 ```
@@ -95,20 +111,6 @@ source
   import myCave.th.3d -surveys ignore
   import mySurface.3d -surveys ignore
 endsource
-
-export model -o myCave_with_mySurface.3d
-```
-
-#### Combine using therion native format (-t option)
-Things get even easier if you directly export a native therion surface mesh.
-This can be activated either by ending the output file parameter `-o` with a name
-ending in `.th` or by explicitely requesting the `-t`parameter.  
-Exporting directly to therion native format allows you more fine control.
-
-A short example may be a single thconfig file like this:
-```
-source myCave.th
-source mySurface.th
 
 export model -o myCave_with_mySurface.3d
 ```
