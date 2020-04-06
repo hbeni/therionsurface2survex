@@ -51,7 +51,7 @@ Each grid section is translated to a station. Station names follow the
 naming scheme `surface.<row>.<column>`, where row and column is the cell address
 from the source therion file.
 
-- _Therion source file_ (with `-t`)  
+- _Therion source file_ (with `-t` or output name ends in `.th`)  
 The output is in therions `.th` centerline format, suitable to be `source`'d
 from therion `thconfig` files which may be even easier to combine with
 you cave data in therion.
