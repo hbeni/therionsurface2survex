@@ -1,5 +1,5 @@
 # This is some made up surface data like it can be used by therion.
-# It is used to a) provide a surface for therion and
+# It is used to a) provide a surface for therion .lox (for `loch` viewer) and
 #               b) serve as input for the command `therionsurface2survex example/surface.th -t`
 #                  which will create a surface mesh file that can be loaded in the thconfig file.
 
