@@ -46,7 +46,7 @@ void usage () {
   cout << "  -h            Print this help and exit."<<endl;
   cout << "  -s            Skip check of contents - process entire file (use in case" <<endl;
   cout << "                your therion grid data file has no \"surface\" declaration)" <<endl;
-  cout << "  -t            Export in therion centerline format\n" <<endl;
+  cout << "  -t            Export in therion centerline format (implicit if -o ends with '.th')\n" <<endl;
   cout << "  -d            debug mode: spew any action on stdout" <<endl;
 }
 
