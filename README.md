@@ -18,6 +18,7 @@ results in *surface.mesh.th* being generated (in therion format).
 Example 2 (survex format):  `./therionsurface2survex examples/surface.th`
 results in *surface.th.swx* being generated.
 
+![Screenshot from Hirlatzhöhle made with V.0.10](example/screenshot_0.10.png)
 
 ## Description
 The main intend of this progam is to generate survex surface meshes that will
@@ -26,7 +27,6 @@ merged with your cave by therion. This way you can use your existing therion dig
 model (DEM) and include it in therions 3d-export; for example to get the distance
 from the cave passage to the surface.
 
-![Screenshot from Hirlatzhöhle made with V.0.10](example/screenshot_0.10.png)
 
 
 #### Input formats
