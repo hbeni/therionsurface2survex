@@ -11,6 +11,8 @@ Usage: [-hsd] [-o outfile] [-i infile] -- [infile]
   -t            Export in therion centerline format (implicit if -o ends with '.th')
   -d            debug mode: spew any action on stdout
 ```
+
+![Screenshot from Hirlatzhöhle made with V.0.10](example/screenshot_0.10.png)
  
 Example 1 (therion native): `./therionsurface2survex -t -o surface.mesh.th examples/surface.th`
 results in *surface.mesh.th* being generated (in therion format).
@@ -18,7 +20,6 @@ results in *surface.mesh.th* being generated (in therion format).
 Example 2 (survex format):  `./therionsurface2survex examples/surface.th`
 results in *surface.th.swx* being generated.
 
-![Screenshot from Hirlatzhöhle made with V.0.10](example/screenshot_0.10.png)
 
 ## Description
 The main intend of this progam is to generate survex surface meshes that will
