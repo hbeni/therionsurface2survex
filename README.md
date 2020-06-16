@@ -13,11 +13,13 @@ Usage: [-hsd] [-o outfile] [-i infile] -- [infile]
 ```
 
 ![Screenshot from Hirlatzhöhle made with V.0.10](example/screenshot_0.10.png)
- 
-Example 1 (therion native): `./therionsurface2survex -t -o surface.mesh.th examples/surface.th`
+
+This is a command line tool. Double clicking it on windows will do nothing. Please run `cmd` (windows) or your favorite shell/terminal (linux) in this case.
+
+Example 1 (therion native): `./therionsurface2survex -t -o surface.mesh.th example/surface.th`
 results in *surface.mesh.th* being generated (in therion format).
  
-Example 2 (survex format):  `./therionsurface2survex examples/surface.th`
+Example 2 (survex format):  `./therionsurface2survex example/surface.th`
 results in *surface.th.swx* being generated.
 
 
