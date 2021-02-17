@@ -15,7 +15,7 @@
 * @author 2020 Benedikt Hallinger <beni@hallinger.org>
 */
 
-const char VERSION[]  = "1.0";
+const char VERSION[]  = "1.0.1";
 const char PROGNAME[] = "therionsurface2survex";
 
 #include <ctype.h>
