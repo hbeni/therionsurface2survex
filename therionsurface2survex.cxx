@@ -15,7 +15,7 @@
 * @author 2020 Benedikt Hallinger <beni@hallinger.org>
 */
 
-const char VERSION[]  = "1.0.1";
+const char VERSION[]  = "1.0.2";
 const char PROGNAME[] = "therionsurface2survex";
 
 #include <ctype.h>
@@ -177,9 +177,10 @@ int main (int argc, char **argv)
     float origin_x, origin_y;
     long step_x, step_y, cols_num, rows_num;
     long cur_col, cur_row = 0;
-    bool gdal_header_valid = false;
+    bool header_valid = false;
     long gdal_ncols = -1, gdal_nrows = -1, gdal_cellsize = -1;
     float gdal_xllcorner = -1, gdal_yllcorner = -1;
+    bool gdal_detected = false;
     std::vector<std::vector<float> > parsedData;  // holds parsed data rows
     while ( std::getline (h_infile, in_line) ) {
       line_nr++;
@@ -194,6 +195,7 @@ int main (int argc, char **argv)
       std::smatch sm_gdalhdr;
       if (std::regex_search(in_line, sm_gdalhdr, parse_gdalhdr_re)) {
         if (debug) cout << "  DBG: GDAL parse OK; cmd=" << sm_gdalhdr[1] << "; val=" << sm_gdalhdr[2] << "\n";
+        gdal_detected = true;
         
         if (sm_gdalhdr[1] == "ncols")     gdal_ncols     = stol(sm_gdalhdr[2]);
         if (sm_gdalhdr[1] == "nrows")     gdal_nrows     = stol(sm_gdalhdr[2]);
@@ -205,6 +207,7 @@ int main (int argc, char **argv)
           if (debug) cout << "  DBG: GDAL header complete! \n";
           // once we have a full GDAL header, we can parse the data :)
           // simply fake grid command so the parser below can work it out
+          header_valid = true;
           in_line = "grid " 
           + to_string(gdal_xllcorner) + " " 
           + to_string(gdal_yllcorner) + " " 
@@ -251,6 +254,7 @@ int main (int argc, char **argv)
           cols_num = stol(sm_grid[5]);
           rows_num = stol(sm_grid[6]);
           if (debug) printf ("  DBG: line %i: Parsed '%s' to origin_x=%f, origin_y=%f, step_x=%i, step_y=%i, cols_num=%i, rows_num=%i\n", line_nr, in_line.c_str(), origin_x, origin_y, step_x, step_y, cols_num, rows_num);
+          header_valid = true;
           
           // init result array
           parsedData.resize(rows_num);
@@ -292,8 +296,27 @@ int main (int argc, char **argv)
 
 
 
-    }
+    } // done reading h_infile
     h_infile.close();
+    
+    
+    // check if we had valid header data and thus where be able to parse the data
+    if ( !header_valid ) {
+        if (gdal_detected) {
+            std::string missingHeaders;
+            if (gdal_ncols <= -1) missingHeaders += " ncols";
+            if (gdal_nrows <= -1) missingHeaders += " nrows";
+            if (gdal_xllcorner <= -1) missingHeaders += " xllcorner";
+            if (gdal_yllcorner <= -1) missingHeaders += " yllcorner";
+            if (gdal_cellsize <= -1) missingHeaders += " cellsize";
+            printf("No valid (or complete) GDAL header data found in '%s':%s\n", inFile.c_str(), missingHeaders.c_str());
+        } else {
+            printf("No valid grid command found in '%s'\n", inFile.c_str());
+        }
+        
+        h_outfile.close();
+        return 2;
+    }
     
     
     /* Ok, now we write the fix station data */
