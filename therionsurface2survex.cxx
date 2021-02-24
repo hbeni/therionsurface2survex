@@ -53,9 +53,14 @@ struct datapoint_f {
 };
 
 
+/* Print version */
+void version() {
+    cout << PROGNAME << " Version " << VERSION << ", License GPLv3" <<endl;
+}
+
 /* Print usage info */
 void usage () {
-  cout << PROGNAME << " Version " << VERSION << ", License GPLv3" <<endl;
+  version();
   cout << "Convert therion surface meshes to survex" << endl;
   cout << "Usage: [-hsdt] [-o outfile] [-i infile] -- [infile]"<<endl;
   cout << "  -o outfile    File to write to. Will be derived from infile if not specified."<<endl;
@@ -81,13 +86,23 @@ int main (int argc, char **argv)
   int index;
   int c;
 
+  // support standard POSIX options
+  for (int i=0; i<argc; i++) {
+    if (NULL != strstr(argv[i],"--version")) { version(); return 0; }
+    if (NULL != strstr(argv[i],"--help")) { usage(); return 0; }
+  }
+
   opterr = 0;
 
-  while ((c = getopt (argc, argv, "hstdi:o:")) != -1)
+  while ((c = getopt (argc, argv, "vhstdi:o:")) != -1)
     switch (c)
       {
       case 'h':
         usage();
+        return 0;
+        break;
+      case 'v':
+        version();
         return 0;
         break;
       case 'i':
