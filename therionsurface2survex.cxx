@@ -36,6 +36,9 @@ const char PROGNAME[] = "therionsurface2survex";
 using namespace std;
 
 
+const long E_NOHDR = -99999999;
+
+
 /* Print usage info */
 void usage () {
   cout << PROGNAME << " Version " << VERSION << ", License GPLv3" <<endl;
@@ -171,15 +174,15 @@ int main (int argc, char **argv)
     std::regex parse_cs_re ("^\\s*(cs)\\s+(.+)");
     std::regex parse_grid_re ("^\\s*grid\\s+(\\d+[.\\d]*)\\s+(\\d+[.\\d]*)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)$");
     std::regex parse_data_re ("^(\\s*\\d+[\\d.]*)+$");
-    std::regex parse_gdalhdr_re ("^\\s*(ncols|nrows|xllcorner|yllcorner|cellsize)\\s+([.\\d]+)");
+    std::regex parse_gdalhdr_re ("^\\s*(ncols|nrows|xllcorner|yllcorner|cellsize|dx|dy)\\s+([.\\d]+)");
 
     bool in_surfacedata = false;
     float origin_x, origin_y;
     long step_x, step_y, cols_num, rows_num;
     long cur_col, cur_row = 0;
     bool header_valid = false;
-    long gdal_ncols = -1, gdal_nrows = -1, gdal_cellsize = -1;
-    float gdal_xllcorner = -1, gdal_yllcorner = -1;
+    long gdal_ncols = E_NOHDR, gdal_nrows = E_NOHDR, gdal_xcellsize = E_NOHDR, gdal_ycellsize = E_NOHDR;
+    float gdal_xllcorner = E_NOHDR, gdal_yllcorner = E_NOHDR;
     bool gdal_detected = false;
     std::vector<std::vector<float> > parsedData;  // holds parsed data rows
     while ( std::getline (h_infile, in_line) ) {
@@ -201,9 +204,12 @@ int main (int argc, char **argv)
         if (sm_gdalhdr[1] == "nrows")     gdal_nrows     = stol(sm_gdalhdr[2]);
         if (sm_gdalhdr[1] == "xllcorner") gdal_xllcorner = stof(sm_gdalhdr[2]);
         if (sm_gdalhdr[1] == "yllcorner") gdal_yllcorner = stof(sm_gdalhdr[2]);
-        if (sm_gdalhdr[1] == "cellsize")  gdal_cellsize  = stol(sm_gdalhdr[2]);
+        if (sm_gdalhdr[1] == "cellsize") {gdal_xcellsize  = stol(sm_gdalhdr[2]); gdal_ycellsize  = stol(sm_gdalhdr[2]);}
+        if (sm_gdalhdr[1] == "dx")        gdal_xcellsize  = stol(sm_gdalhdr[2]);
+        if (sm_gdalhdr[1] == "dy")        gdal_ycellsize  = stol(sm_gdalhdr[2]);
         
-        if (gdal_ncols > -1 && gdal_nrows > -1 && gdal_xllcorner > -1 && gdal_yllcorner > -1 && gdal_cellsize > -1) {
+        
+        if (gdal_ncols > E_NOHDR && gdal_nrows > E_NOHDR && gdal_xllcorner > E_NOHDR && gdal_yllcorner > E_NOHDR && gdal_xcellsize > E_NOHDR && gdal_ycellsize > E_NOHDR) {
           if (debug) cout << "  DBG: GDAL header complete! \n";
           // once we have a full GDAL header, we can parse the data :)
           // simply fake grid command so the parser below can work it out
@@ -211,8 +217,8 @@ int main (int argc, char **argv)
           in_line = "grid " 
           + to_string(gdal_xllcorner) + " " 
           + to_string(gdal_yllcorner) + " " 
-          + to_string(gdal_cellsize) + " " 
-          + to_string(gdal_cellsize) + " " 
+          + to_string(gdal_xcellsize) + " " 
+          + to_string(gdal_ycellsize) + " " 
           + to_string(gdal_ncols) + " "
           + to_string(gdal_nrows);
           
@@ -304,11 +310,11 @@ int main (int argc, char **argv)
     if ( !header_valid ) {
         if (gdal_detected) {
             std::string missingHeaders;
-            if (gdal_ncols <= -1) missingHeaders += " ncols";
-            if (gdal_nrows <= -1) missingHeaders += " nrows";
-            if (gdal_xllcorner <= -1) missingHeaders += " xllcorner";
-            if (gdal_yllcorner <= -1) missingHeaders += " yllcorner";
-            if (gdal_cellsize <= -1) missingHeaders += " cellsize";
+            if (gdal_ncols <= E_NOHDR) missingHeaders += " ncols";
+            if (gdal_nrows <= E_NOHDR) missingHeaders += " nrows";
+            if (gdal_xllcorner <= E_NOHDR) missingHeaders += " xllcorner";
+            if (gdal_yllcorner <= E_NOHDR) missingHeaders += " yllcorner";
+            if (gdal_xcellsize <= E_NOHDR || gdal_ycellsize <= E_NOHDR) missingHeaders += " dx|dy|cellsize";
             printf("No valid (or complete) GDAL header data found in '%s':%s\n", inFile.c_str(), missingHeaders.c_str());
         } else {
             printf("No valid grid command found in '%s'\n", inFile.c_str());
