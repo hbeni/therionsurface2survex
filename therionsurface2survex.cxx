@@ -187,9 +187,9 @@ int main (int argc, char **argv)
     std::regex detect_surface_end_re ("^\\s*endsurface");
     std::regex parse_cmddirect_re ("^\\s*(-nothing So Far-)\\s+(.+)");
     std::regex parse_cs_re ("^\\s*(cs)\\s+(.+)");
-    std::regex parse_grid_re ("^\\s*grid\\s+(\\d+[\\.\\d]*)\\s+(\\d+[\\.\\d]*)\\s+(\\d+[\\.\\d]*)\\s+(\\d+[\\.\\d]*)\\s+(\\d+)\\s+(\\d+)$");
+    std::regex parse_grid_re ("^\\s*grid\\s+(-?\\d+[\\.\\d]*)\\s+(-?\\d+[\\.\\d]*)\\s+(\\d+[\\.\\d]*)\\s+(\\d+[\\.\\d]*)\\s+(\\d+)\\s+(\\d+)$");
     std::regex parse_data_re ("^(\\s*\\d+[\\d.]*)+$");
-    std::regex parse_gdalhdr_re ("^\\s*(ncols|nrows|xllcorner|yllcorner|cellsize|dx|dy)\\s+([.\\d]+)");
+    std::regex parse_gdalhdr_re ("^\\s*(ncols|nrows|xllcorner|yllcorner|cellsize|dx|dy)\\s+(-?[.\\d]+)");
 
     bool in_surfacedata = false;
     double origin_x, origin_y, step_x, step_y;
@@ -215,15 +215,14 @@ int main (int argc, char **argv)
         if (debug) cout << "  DBG: GDAL parse OK; cmd=" << sm_gdalhdr[1] << "; val=" << sm_gdalhdr[2] << "\n";
         gdal_detected = true;
         
-        if (sm_gdalhdr[1] == "ncols")     {gdal_ncols.d     = stol(sm_gdalhdr[2]); gdal_ncols.valid = true;}
-        if (sm_gdalhdr[1] == "nrows")     {gdal_nrows.d     = stol(sm_gdalhdr[2]); gdal_nrows.valid = true;}
+        if (sm_gdalhdr[1] == "ncols")     {gdal_ncols.d     = stol(sm_gdalhdr[2]); gdal_ncols.valid = (gdal_ncols.d > 0)?true:false;}
+        if (sm_gdalhdr[1] == "nrows")     {gdal_nrows.d     = stol(sm_gdalhdr[2]); gdal_nrows.valid = (gdal_nrows.d > 0)?true:false;}
         if (sm_gdalhdr[1] == "xllcorner") {gdal_xllcorner.d = stod(sm_gdalhdr[2]); gdal_xllcorner.valid = true;}
         if (sm_gdalhdr[1] == "yllcorner") {gdal_yllcorner.d = stod(sm_gdalhdr[2]); gdal_yllcorner.valid = true;}
-        if (sm_gdalhdr[1] == "cellsize")  {gdal_xcellsize.d = stod(sm_gdalhdr[2]); gdal_xcellsize.valid = true;
-                                           gdal_ycellsize.d = stod(sm_gdalhdr[2]); gdal_ycellsize.valid = true;}
-        if (sm_gdalhdr[1] == "dx")        {gdal_xcellsize.d = stod(sm_gdalhdr[2]); gdal_xcellsize.valid = true;}
-        if (sm_gdalhdr[1] == "dy")        {gdal_ycellsize.d = stod(sm_gdalhdr[2]); gdal_ycellsize.valid = true;}
-        
+        if (sm_gdalhdr[1] == "cellsize")  {gdal_xcellsize.d = stod(sm_gdalhdr[2]); gdal_xcellsize.valid = (gdal_xcellsize.d > 0)?true:false;
+                                           gdal_ycellsize.d = stod(sm_gdalhdr[2]); gdal_ycellsize.valid = (gdal_ycellsize.d > 0)?true:false;}
+        if (sm_gdalhdr[1] == "dx")        {gdal_xcellsize.d = stod(sm_gdalhdr[2]); gdal_xcellsize.valid = (gdal_xcellsize.d > 0)?true:false;}
+        if (sm_gdalhdr[1] == "dy")        {gdal_ycellsize.d = stod(sm_gdalhdr[2]); gdal_ycellsize.valid = (gdal_ycellsize.d > 0)?true:false;}
         
         if (gdal_ncols.valid && gdal_nrows.valid && gdal_xllcorner.valid && gdal_yllcorner.valid && gdal_xcellsize.valid && gdal_ycellsize.valid) {
           if (debug) cout << "  DBG: GDAL header complete! \n";
