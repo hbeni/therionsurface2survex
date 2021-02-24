@@ -32,11 +32,25 @@ const char PROGNAME[] = "therionsurface2survex";
 // Strings benutzbar machen
 #include <string>
 #include <regex>
+#include <clocale> // setlocale()
 
 using namespace std;
 
-
-const long E_NOHDR = -99999999;
+// define datapoint structs, so we can track if they were initialized ok
+struct datapoint_i {
+  bool   valid;
+  long   d;
+  datapoint_i() {
+      valid = false;
+  }
+};
+struct datapoint_f {
+  bool   valid;
+  double d;
+  datapoint_f() {
+      valid = false;
+  }
+};
 
 
 /* Print usage info */
@@ -142,6 +156,7 @@ int main (int argc, char **argv)
   
 
   // Read infile, parse and write result to outfile
+  std::setlocale(LC_NUMERIC,"C"); // decial points always ".", not ","
   ifstream h_infile;
   ofstream h_outfile;
   h_infile.open(inFile.c_str());
@@ -172,19 +187,19 @@ int main (int argc, char **argv)
     std::regex detect_surface_end_re ("^\\s*endsurface");
     std::regex parse_cmddirect_re ("^\\s*(-nothing So Far-)\\s+(.+)");
     std::regex parse_cs_re ("^\\s*(cs)\\s+(.+)");
-    std::regex parse_grid_re ("^\\s*grid\\s+(\\d+[.\\d]*)\\s+(\\d+[.\\d]*)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)$");
+    std::regex parse_grid_re ("^\\s*grid\\s+(\\d+[\\.\\d]*)\\s+(\\d+[\\.\\d]*)\\s+(\\d+[\\.\\d]*)\\s+(\\d+[\\.\\d]*)\\s+(\\d+)\\s+(\\d+)$");
     std::regex parse_data_re ("^(\\s*\\d+[\\d.]*)+$");
     std::regex parse_gdalhdr_re ("^\\s*(ncols|nrows|xllcorner|yllcorner|cellsize|dx|dy)\\s+([.\\d]+)");
 
     bool in_surfacedata = false;
-    float origin_x, origin_y;
-    long step_x, step_y, cols_num, rows_num;
-    long cur_col, cur_row = 0;
+    double origin_x, origin_y, step_x, step_y;
+    long cols_num, rows_num;
+    long cur_col, cur_row;
     bool header_valid = false;
-    long gdal_ncols = E_NOHDR, gdal_nrows = E_NOHDR, gdal_xcellsize = E_NOHDR, gdal_ycellsize = E_NOHDR;
-    float gdal_xllcorner = E_NOHDR, gdal_yllcorner = E_NOHDR;
+    datapoint_i gdal_ncols, gdal_nrows;
+    datapoint_f gdal_xllcorner, gdal_yllcorner, gdal_xcellsize, gdal_ycellsize;
     bool gdal_detected = false;
-    std::vector<std::vector<float> > parsedData;  // holds parsed data rows
+    std::vector<std::vector<double> > parsedData;  // holds parsed data rows
     while ( std::getline (h_infile, in_line) ) {
       line_nr++;
       if (debug) cout << "DBG: " << line_nr << ": " << in_line << '\n';
@@ -200,27 +215,27 @@ int main (int argc, char **argv)
         if (debug) cout << "  DBG: GDAL parse OK; cmd=" << sm_gdalhdr[1] << "; val=" << sm_gdalhdr[2] << "\n";
         gdal_detected = true;
         
-        if (sm_gdalhdr[1] == "ncols")     gdal_ncols     = stol(sm_gdalhdr[2]);
-        if (sm_gdalhdr[1] == "nrows")     gdal_nrows     = stol(sm_gdalhdr[2]);
-        if (sm_gdalhdr[1] == "xllcorner") gdal_xllcorner = stof(sm_gdalhdr[2]);
-        if (sm_gdalhdr[1] == "yllcorner") gdal_yllcorner = stof(sm_gdalhdr[2]);
-        if (sm_gdalhdr[1] == "cellsize") {gdal_xcellsize  = stol(sm_gdalhdr[2]); gdal_ycellsize  = stol(sm_gdalhdr[2]);}
-        if (sm_gdalhdr[1] == "dx")        gdal_xcellsize  = stol(sm_gdalhdr[2]);
-        if (sm_gdalhdr[1] == "dy")        gdal_ycellsize  = stol(sm_gdalhdr[2]);
+        if (sm_gdalhdr[1] == "ncols")     {gdal_ncols.d     = stol(sm_gdalhdr[2]); gdal_ncols.valid = true;}
+        if (sm_gdalhdr[1] == "nrows")     {gdal_nrows.d     = stol(sm_gdalhdr[2]); gdal_nrows.valid = true;}
+        if (sm_gdalhdr[1] == "xllcorner") {gdal_xllcorner.d = stod(sm_gdalhdr[2]); gdal_xllcorner.valid = true;}
+        if (sm_gdalhdr[1] == "yllcorner") {gdal_yllcorner.d = stod(sm_gdalhdr[2]); gdal_yllcorner.valid = true;}
+        if (sm_gdalhdr[1] == "cellsize")  {gdal_xcellsize.d = stod(sm_gdalhdr[2]); gdal_xcellsize.valid = true;
+                                           gdal_ycellsize.d = stod(sm_gdalhdr[2]); gdal_ycellsize.valid = true;}
+        if (sm_gdalhdr[1] == "dx")        {gdal_xcellsize.d = stod(sm_gdalhdr[2]); gdal_xcellsize.valid = true;}
+        if (sm_gdalhdr[1] == "dy")        {gdal_ycellsize.d = stod(sm_gdalhdr[2]); gdal_ycellsize.valid = true;}
         
         
-        if (gdal_ncols > E_NOHDR && gdal_nrows > E_NOHDR && gdal_xllcorner > E_NOHDR && gdal_yllcorner > E_NOHDR && gdal_xcellsize > E_NOHDR && gdal_ycellsize > E_NOHDR) {
+        if (gdal_ncols.valid && gdal_nrows.valid && gdal_xllcorner.valid && gdal_yllcorner.valid && gdal_xcellsize.valid && gdal_ycellsize.valid) {
           if (debug) cout << "  DBG: GDAL header complete! \n";
           // once we have a full GDAL header, we can parse the data :)
           // simply fake grid command so the parser below can work it out
-          header_valid = true;
           in_line = "grid " 
-          + to_string(gdal_xllcorner) + " " 
-          + to_string(gdal_yllcorner) + " " 
-          + to_string(gdal_xcellsize) + " " 
-          + to_string(gdal_ycellsize) + " " 
-          + to_string(gdal_ncols) + " "
-          + to_string(gdal_nrows);
+          + to_string(gdal_xllcorner.d) + " "
+          + to_string(gdal_yllcorner.d) + " "
+          + to_string(gdal_xcellsize.d) + " "
+          + to_string(gdal_ycellsize.d) + " "
+          + to_string(gdal_ncols.d) + " "
+          + to_string(gdal_nrows.d);
           
           skipCheck = true;
           
@@ -253,15 +268,15 @@ int main (int argc, char **argv)
         //      ^x0    ^y0     ^xs  ^ys  ^cnum  ^rnum
         std::smatch sm_grid;
         if (std::regex_search(in_line, sm_grid, parse_grid_re)) {
-          origin_x = stof(sm_grid[1]);
-          origin_y = stof(sm_grid[2]);
-          step_x   = stol(sm_grid[3]);
-          step_y   = stol(sm_grid[4]);
+          origin_x = stod(sm_grid[1]);
+          origin_y = stod(sm_grid[2]);
+          step_x   = stod(sm_grid[3]);
+          step_y   = stod(sm_grid[4]);
           cols_num = stol(sm_grid[5]);
           rows_num = stol(sm_grid[6]);
-          if (debug) printf ("  DBG: line %i: Parsed '%s' to origin_x=%f, origin_y=%f, step_x=%i, step_y=%i, cols_num=%i, rows_num=%i\n", line_nr, in_line.c_str(), origin_x, origin_y, step_x, step_y, cols_num, rows_num);
+          if (debug) printf ("  DBG: line %i: Parsed '%s' to grid header: origin_x=%f, origin_y=%f, step_x=%f, step_y=%f, cols_num=%i, rows_num=%i\n", line_nr, in_line.c_str(), origin_x, origin_y, step_x, step_y, cols_num, rows_num);
           header_valid = true;
-          
+
           // init result array
           parsedData.resize(rows_num);
           for(int i = 0 ; i < rows_num ; ++i) {
@@ -290,8 +305,8 @@ int main (int argc, char **argv)
                 
                 if (tokens.size() == cols_num) {
                     for (cur_col = 0; cur_col < tokens.size(); ++cur_col) {  // need to allocate backwards, otherwise model is fipped
-                       if (debug) printf ("  DBG: data stored: parsedData[%i][%i]='%f'\n", cur_row, cur_col, stof(tokens[cur_col]) );
-                       parsedData[cur_row][cur_col] = stof(tokens[cur_col]);
+                       if (debug) printf ("  DBG: data stored: parsedData[%i][%i]='%f'\n", cur_row, cur_col, stod(tokens[cur_col]) );
+                       parsedData[cur_row][cur_col] = stod(tokens[cur_col]);
                     }        
                   cur_row--;
                 }
@@ -310,12 +325,13 @@ int main (int argc, char **argv)
     if ( !header_valid ) {
         if (gdal_detected) {
             std::string missingHeaders;
-            if (gdal_ncols <= E_NOHDR) missingHeaders += " ncols";
-            if (gdal_nrows <= E_NOHDR) missingHeaders += " nrows";
-            if (gdal_xllcorner <= E_NOHDR) missingHeaders += " xllcorner";
-            if (gdal_yllcorner <= E_NOHDR) missingHeaders += " yllcorner";
-            if (gdal_xcellsize <= E_NOHDR || gdal_ycellsize <= E_NOHDR) missingHeaders += " dx|dy|cellsize";
-            printf("No valid (or complete) GDAL header data found in '%s':%s\n", inFile.c_str(), missingHeaders.c_str());
+            if (!gdal_ncols.valid) missingHeaders += " ncols";
+            if (!gdal_nrows.valid) missingHeaders += " nrows";
+            if (!gdal_xllcorner.valid) missingHeaders += " xllcorner";
+            if (!gdal_yllcorner.valid) missingHeaders += " yllcorner";
+            if (!gdal_xcellsize.valid) missingHeaders += " dx|cellsize";
+            if (!gdal_ycellsize.valid) missingHeaders += " dy|cellsize";
+            printf("No valid (or complete) GDAL header data found in '%s', missing:%s\n", inFile.c_str(), missingHeaders.c_str());
         } else {
             printf("No valid grid command found in '%s'\n", inFile.c_str());
         }
@@ -327,9 +343,9 @@ int main (int argc, char **argv)
     
     /* Ok, now we write the fix station data */
     h_outfile << command_prfx << "flags surface" << "\n";
-    float tgt_x, tgt_y, tgt_z;
-    float bbox_ur_x = origin_x + step_x * cols_num;
-    float bbox_ur_y = origin_y + step_y * cols_num;
+    double tgt_x, tgt_y, tgt_z;
+    double bbox_ur_x = origin_x + step_x * cols_num;
+    double bbox_ur_y = origin_y + step_y * cols_num;
     if (debug) printf ("  DBG: BBox: lowerLeft=(%f / %f); upperRight=(%f / %f)\n", origin_x, origin_y, bbox_ur_x, bbox_ur_y);
     for (cur_row = 0; cur_row < parsedData.size(); ++cur_row) {
       for (cur_col = 0; cur_col < parsedData[cur_row].size(); ++cur_col) {
