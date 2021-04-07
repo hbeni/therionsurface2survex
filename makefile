@@ -11,7 +11,7 @@ linux:
 # Windows 64bit build
 #   apt-get install mingw-w64
 win64:
-	x86_64-w64-mingw32-g++ -o therionsurface2survex.exe therionsurface2survex.cxx -static-libgcc -static-libstdc++
+	x86_64-w64-mingw32-g++ -o therionsurface2survex.exe therionsurface2survex.cxx -static-libgcc -static-libstdc++ $(CFLAGS)
 
 test: linux
 	therionsurface2survex -h
