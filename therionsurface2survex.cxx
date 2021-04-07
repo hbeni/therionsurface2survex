@@ -15,7 +15,7 @@
 * @author 2020 Benedikt Hallinger <beni@hallinger.org>
 */
 
-const char VERSION[]  = "1.0.2";
+const char VERSION[]  = "1.1.0";
 const char PROGNAME[] = "therionsurface2survex";
 
 #include <ctype.h>
@@ -204,16 +204,18 @@ int main (int argc, char **argv)
     std::regex parse_cs_re ("^\\s*(cs)\\s+(.+)");
     std::regex parse_grid_re ("^\\s*grid\\s+(-?\\d+[\\.\\d]*)\\s+(-?\\d+[\\.\\d]*)\\s+(\\d+[\\.\\d]*)\\s+(\\d+[\\.\\d]*)\\s+(\\d+)\\s+(\\d+)$");
     std::regex parse_data_re ("^(\\s*\\d+[\\d.]*)+$");
+    std::regex parse_gridflip_re ("^\\s*grid-flip\\s+(none|vertical|horizontal)");
     std::regex parse_gdalhdr_re ("^\\s*(ncols|nrows|xllcorner|yllcorner|cellsize|dx|dy)\\s+(-?[.\\d]+)");
 
     bool in_surfacedata = false;
     double origin_x, origin_y, step_x, step_y;
     long cols_num, rows_num;
-    long cur_col, cur_row;
+    long cur_row; // initialized either by grid-flip or grid command
     bool header_valid = false;
     datapoint_i gdal_ncols, gdal_nrows;
     datapoint_f gdal_xllcorner, gdal_yllcorner, gdal_xcellsize, gdal_ycellsize;
     bool gdal_detected = false;
+    bool flip_vertical, flip_horizontal = false;
     std::vector<std::vector<double> > parsedData;  // holds parsed data rows
     while ( std::getline (h_infile, in_line) ) {
       line_nr++;
@@ -234,15 +236,20 @@ int main (int argc, char **argv)
         if (sm_gdalhdr[1] == "nrows")     {gdal_nrows.d     = stol(sm_gdalhdr[2]); gdal_nrows.valid = (gdal_nrows.d > 0)?true:false;}
         if (sm_gdalhdr[1] == "xllcorner") {gdal_xllcorner.d = stod(sm_gdalhdr[2]); gdal_xllcorner.valid = true;}
         if (sm_gdalhdr[1] == "yllcorner") {gdal_yllcorner.d = stod(sm_gdalhdr[2]); gdal_yllcorner.valid = true;}
-        if (sm_gdalhdr[1] == "cellsize")  {gdal_xcellsize.d = stod(sm_gdalhdr[2]); gdal_xcellsize.valid = (gdal_xcellsize.d > 0)?true:false;
-                                           gdal_ycellsize.d = stod(sm_gdalhdr[2]); gdal_ycellsize.valid = (gdal_ycellsize.d > 0)?true:false;}
-        if (sm_gdalhdr[1] == "dx")        {gdal_xcellsize.d = stod(sm_gdalhdr[2]); gdal_xcellsize.valid = (gdal_xcellsize.d > 0)?true:false;}
-        if (sm_gdalhdr[1] == "dy")        {gdal_ycellsize.d = stod(sm_gdalhdr[2]); gdal_ycellsize.valid = (gdal_ycellsize.d > 0)?true:false;}
+        if (sm_gdalhdr[1] == "cellsize")  {gdal_xcellsize.d = stod(sm_gdalhdr[2]); gdal_xcellsize.valid = true;
+                                           gdal_ycellsize.d = stod(sm_gdalhdr[2]); gdal_ycellsize.valid = true;}
+        if (sm_gdalhdr[1] == "dx")        {gdal_xcellsize.d = stod(sm_gdalhdr[2]); gdal_xcellsize.valid = true;}
+        if (sm_gdalhdr[1] == "dy")        {gdal_ycellsize.d = stod(sm_gdalhdr[2]); gdal_ycellsize.valid = true;}
         
         if (gdal_ncols.valid && gdal_nrows.valid && gdal_xllcorner.valid && gdal_yllcorner.valid && gdal_xcellsize.valid && gdal_ycellsize.valid) {
           if (debug) cout << "  DBG: GDAL header complete! \n";
           // once we have a full GDAL header, we can parse the data :)
           // simply fake grid command so the parser below can work it out
+          
+          // if step size is negative, grid is flipped
+          if (gdal_xcellsize.d < 0) { gdal_xcellsize.d *= -1; flip_horizontal = true; }
+          if (gdal_ycellsize.d < 0) { gdal_ycellsize.d *= -1; flip_vertical   = true; }
+          
           in_line = "grid " 
           + to_string(gdal_xllcorner.d) + " "
           + to_string(gdal_yllcorner.d) + " "
@@ -277,6 +284,17 @@ int main (int argc, char **argv)
             h_outfile << command_prfx << "cs out" << " " << sm_cs[2] << "\n";
         }
 
+        // digest grid-flip command
+        std::smatch sm_gridflip;
+        if (std::regex_search(in_line, sm_gridflip, parse_gridflip_re)) {
+            if (sm_gridflip[1] == "none")       { flip_horizontal = false; flip_vertical=false; }
+            if (sm_gridflip[1] == "vertical")   { flip_vertical   = true;  }
+            if (sm_gridflip[1] == "horizontal") { flip_horizontal = true;  }
+            cur_row = (flip_vertical)? 0 : rows_num-1; // may be overwritten by "grid" command
+            if (debug) printf ("  DBG: line %i: Parsed '%s' to grid-flip: flip_vertical=%d; flip_horizontal=%d\n", line_nr, in_line.c_str(), flip_vertical, flip_horizontal);
+        }
+        
+
         // parse grid command, we need to get some values out:
         // grid 400080 5419750 10   10   4      5
         //      ^x0    ^y0     ^xs  ^ys  ^cnum  ^rnum
@@ -296,12 +314,12 @@ int main (int argc, char **argv)
           for(int i = 0 ; i < rows_num ; ++i) {
             parsedData[i].resize(cols_num);
           }
-          cur_row = rows_num-1; // need to allocate backwards, otherwise model is fipped
+          cur_row = (flip_vertical)? 0 : rows_num-1; // may be overwritten by "grid-flip" command
         }
         
         // parse raw data. These are heights at the given point in the matrix.
         // We note this and after parsing all of this we will generate the data out of that.
-        if (cols_num > 0 && rows_num > 0 ) {
+        if (cols_num > 0 && rows_num > 0 && header_valid) {
             
             if (std::regex_match(in_line, parse_data_re)) {
                 std::vector<std::string> tokens;
@@ -318,11 +336,14 @@ int main (int argc, char **argv)
                 }
                 
                 if (tokens.size() == cols_num) {
-                    for (cur_col = 0; cur_col < tokens.size(); ++cur_col) {  // need to allocate backwards, otherwise model is fipped
+                    long cur_col = (flip_horizontal)? cols_num-1 : 0;
+                    long cur_col_step  = (flip_horizontal)? -1 : +1;
+                    long cur_col_ref = 0;
+                    for ( ; cur_col >= 0 && cur_col < tokens.size(); cur_col += cur_col_step) {
                        if (debug) printf ("  DBG: data stored: parsedData[%i][%i]='%f'\n", cur_row, cur_col, stod(tokens[cur_col]) );
-                       parsedData[cur_row][cur_col] = stod(tokens[cur_col]);
-                    }        
-                  cur_row--;
+                       parsedData[cur_row][cur_col_ref++] = stod(tokens[cur_col]);
+                    }
+                    (flip_vertical)? cur_row++ : cur_row--;
                 }
             }
         }
@@ -362,7 +383,7 @@ int main (int argc, char **argv)
     double bbox_ur_y = origin_y + step_y * cols_num;
     if (debug) printf ("  DBG: BBox: lowerLeft=(%f / %f); upperRight=(%f / %f)\n", origin_x, origin_y, bbox_ur_x, bbox_ur_y);
     for (cur_row = 0; cur_row < parsedData.size(); ++cur_row) {
-      for (cur_col = 0; cur_col < parsedData[cur_row].size(); ++cur_col) {
+      for (long cur_col = 0; cur_col < parsedData[cur_row].size(); ++cur_col) {
           // *fix 20 200 000 1050
           //  name^  ^coords
           tgt_x     = origin_x + step_x * cur_col;
@@ -379,7 +400,7 @@ int main (int argc, char **argv)
     /* Ok, now on to write the mesh */
     h_outfile << "\n" << command_prfx << "data nosurvey from to" << "\n";
     for (cur_row = 0; cur_row < parsedData.size(); ++cur_row) {
-      for (cur_col = 0; cur_col < parsedData[cur_row].size(); ++cur_col) {
+      for (long cur_col = 0; cur_col < parsedData[cur_row].size(); ++cur_col) {
 
           string src_name = "surface." + to_string(cur_row) + "." + to_string(cur_col);
           
