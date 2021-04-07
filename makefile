@@ -27,6 +27,6 @@ release: clean all
 	cp -r example/ LICENSE README.md therionsurface2survex-${VERSION}/
 	cp therionsurface2survex therionsurface2survex.exe therionsurface2survex-${VERSION}/
 	tar -czf therionsurface2survex-${VERSION}.tar.gz therionsurface2survex-${VERSION}/
-	rm -rf therionsurface2survex-1.0.1/
+	rm -rf therionsurface2survex-${VERSION}/
 	ls -alh therionsurface2survex-${VERSION}.tar.gz
 	tar -tzf therionsurface2survex-${VERSION}.tar.gz
