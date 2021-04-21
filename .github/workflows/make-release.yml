@@ -1,0 +1,91 @@
+name: "Build Release"
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: [master]
+  #schedule:
+  #  - cron: '0 0 * * *'  # end of each day (nightlies!)
+  release:
+    types:
+      - created
+
+jobs:
+
+  ################################
+  #    Normal release version    #
+  ################################
+  build_mac:
+    name: Build macOS binary
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+      with:
+        # We must fetch at least the immediate parents so that if this is
+        # a pull request then we can checkout the head.
+        fetch-depth: 2
+
+    - name: Build
+      run: |
+        make CC=g++-10 linux
+        mv therionsurface2survex therionsurface2survex-macOS
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: macEXE
+        path: therionsurface2survex-macOS
+        retention-days: 1
+
+
+  build_release_package:
+    name: Build release package
+    runs-on: ubuntu-latest
+    needs: build_mac
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+      with:
+        # We must fetch at least the immediate parents so that if this is
+        # a pull request then we can checkout the head.
+        fetch-depth: 2
+
+    - name: Setup C++
+      run: |
+        sudo apt-get install mingw-w64 mingw-w64-common build-essential
+
+    - name: Build release (linux, windows)
+      run: |
+        make release
+
+    - name: Get release version
+      run: |
+        echo "VERSION=$(make showVer |grep VERSION: |cut -d':' -f2)" >> $GITHUB_ENV
+        echo "SHASHORT=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+    - name: Download macExe from previous job
+      uses: actions/download-artifact@v2
+      with:
+        name: macEXE
+
+    - name: Add macEXE to release files
+      run: |
+        ls -alh
+        mkdir dist
+        cd dist
+        echo "VERSION: ${VERSION}"
+        tar -xzvf ../therionsurface2survex-${VERSION}.tar.gz
+        cp ../therionsurface2survex-macOS therionsurface2survex-${VERSION}/
+
+    - name: 'Upload Artifact'
+      uses: actions/upload-artifact@v2
+      with:
+        name: therionsurface2survex-${{env.VERSION}}
+        path: dist
+        retention-days: 7

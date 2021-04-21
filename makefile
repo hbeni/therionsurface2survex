@@ -30,3 +30,7 @@ release: clean all
 	rm -rf therionsurface2survex-${VERSION}/
 	ls -alh therionsurface2survex-${VERSION}.tar.gz
 	tar -tzf therionsurface2survex-${VERSION}.tar.gz
+
+
+showVer:
+	@echo "VERSION:$(VERSION)"
