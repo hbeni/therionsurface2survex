@@ -31,3 +31,7 @@
 *.out
 *.app
 therionsurface2survex
+
+# archives/releases
+therionsurface2survex*.tar.gz
+therionsurface2survex*.zip
