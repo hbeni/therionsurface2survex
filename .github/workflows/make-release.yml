@@ -32,11 +32,11 @@ jobs:
 
     - name: Build
       run: |
-        make CC=g++-10 linux
+        make CC=g++-13 CFLAGS+=-ld_classic linux
         mv therionsurface2survex therionsurface2survex-macOS
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: macEXE
         path: therionsurface2survex-macOS
@@ -70,7 +70,7 @@ jobs:
         echo "SHASHORT=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
     - name: Download macExe from previous job
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v4
       with:
         name: macEXE
 
@@ -84,7 +84,7 @@ jobs:
         cp ../therionsurface2survex-macOS therionsurface2survex-${VERSION}/
 
     - name: 'Upload Artifact'
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: therionsurface2survex-${{env.VERSION}}
         path: dist
