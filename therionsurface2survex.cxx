@@ -31,6 +31,7 @@ const char PROGNAME[] = "therionsurface2survex";
 
 // Strings benutzbar machen
 #include <string>
+#include <cstring>
 #include <regex>
 #include <clocale> // setlocale()
 
